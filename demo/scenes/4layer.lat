@@ -662,7 +662,7 @@
 
 [image]
   encoding base64
-  format rgba8
+  format 71
   width 256
   height 199
   data_begin
