@@ -1,19 +1,21 @@
-#include "VerletScheme.h"
+#include "Verlet.h"
 
 #include "Lattice/Engine/metrics/Profiler.h"
-#include "Lattice/Engine/physics/integrators/StepOps.h"
+#include "Lattice/Plugins/ClassicMD/Integrators/StepOps.h"
 
-void VerletScheme::pipeline(StepData& stepData) const {
-    PROFILE_SCOPE("VerletScheme::pipeline");
+REGISTER_INTEGRATOR(Verlet)
+
+void Verlet::pipeline(StepData& stepData) const {
+    PROFILE_SCOPE("Verlet::pipeline");
     // Расчет новых позиций
-    StepOps::predictAndSync(stepData, &predict);
+    StepOps::predictAndSync(stepData, &Verlet::predict);
     // Расчет сил
     StepOps::computeForces(stepData);
     // Корректировка скоростей
-    correct(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
+    Verlet::correct(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
 }
 
-void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
+void Verlet::predict(AtomStorage& atomStorage, float dt) {
     const size_t n = atomStorage.mobileCount();
 
     float* RESTRICT x = atomStorage.xData();
@@ -30,7 +32,7 @@ void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma GCC ivdep
+    #pragma GCC ivdep
     for (size_t i = 0; i < n; ++i) {
         x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
         y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
@@ -38,8 +40,8 @@ void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
     }
 }
 
-void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float dt) {
-    PROFILE_SCOPE("VerletScheme::correct");
+void Verlet::correct(AtomStorage& atomStorage, float accelDamping, float dt) {
+    PROFILE_SCOPE("Verlet::correct");
     const size_t n = atomStorage.mobileCount();
 
     const float* RESTRICT fx = atomStorage.fxData();
@@ -56,7 +58,7 @@ void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float d
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma GCC ivdep
+    #pragma GCC ivdep
     for (size_t i = 0; i < n; ++i) {
         const float halfDtInvMass = 0.5f * accelDamping * dt * invMass[i];
 
