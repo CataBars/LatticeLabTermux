@@ -5,13 +5,13 @@
 
 #include "Lattice/Engine/physics/IThermostat.h"
 
-class Andersen final : public IThermostat {
+class Barendsen final : public IThermostat {
 public:
-    static constexpr std::string_view id = "andersen";
-    static constexpr std::string_view description = "thermostat_andersen";
+    static constexpr std::string_view id = "barendsen";
+    static constexpr std::string_view description = "thermostat_barendsen";
 
-    Andersen(double temperature = 300.0, double param = 0.1, std::mt19937::result_type seed = std::mt19937::default_seed)  :
-        t(temperature), nu(param), randomGenerator(seed) {}
+    Barendsen(double temperature = 300.0, double param = 5.0)  :
+        t(temperature), nu(param) {}
 
     float temperature() const override { return static_cast<float>(t); }
     void setTemperature(float temperature) override { t = temperature; }
@@ -19,10 +19,7 @@ public:
     float param() const override { return static_cast<float>(nu); }
     void apply(StepContext& stepContext) override;
 
-    void mkMove(StepContext& stepContext);
-
 private:
     double t;
     double nu;
-    std::mt19937 randomGenerator;
 };
