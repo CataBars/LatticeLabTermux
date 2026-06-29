@@ -21,7 +21,7 @@ permissions:
 jobs:
   build:
     name: Build Termux ${{ matrix.arch_label }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Фиксируем LTS версию для стабильности пакетов apt
     env:
       VERSION: ${{ github.event.inputs.version }}
       APP_RELEASE_BUILD: ${{ github.event.inputs.clean_version }}
@@ -30,6 +30,7 @@ jobs:
       matrix:
         include:
           - arch_label: ARMv7
+            dpkg_arch: armhf
             suffix: termux-armv7
             compiler_pkg: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
             cmake_processor: armv7-a
@@ -37,6 +38,7 @@ jobs:
             cxx_compiler: arm-linux-gnueabihf-g++
           
           - arch_label: ARMv8
+            dpkg_arch: arm64
             suffix: termux-armv8
             compiler_pkg: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             cmake_processor: aarch64
@@ -46,11 +48,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Динамическая установка нужного кросс-компилятора из матрицы
-      - name: Install Cross-Compiler
+      # 1. Настройка dpkg, репозиториев и установка компиляторов с библиотеками
+      - name: Install Cross-Compiler and Libraries
         run: |
+          # Включаем нужную архитектуру из матрицы (armhf или arm64)
+          sudo dpkg --add-architecture ${{ matrix.dpkg_arch }}
           sudo apt-get update
+          
+          # Устанавливаем сам кросс-компилятор
           sudo apt-get install -y ${{ matrix.compiler_pkg }}
+          
+          # Устанавливаем все запрашиваемые библиотеки для целевой архитектуры
+          sudo apt-get install -y \
+            libx11-dev:${{ matrix.dpkg_arch }} \
+            libxrandr-dev:${{ matrix.dpkg_arch }} \
+            libudev-dev:${{ matrix.dpkg_arch }} \
+            libgl1-mesa-dev:${{ matrix.dpkg_arch }} \
+            libxcursor-dev:${{ matrix.dpkg_arch }} \
+            libxi-dev:${{ matrix.dpkg_arch }} \
+            libfreetype6-dev:${{ matrix.dpkg_arch }} \
+            libxinerama-dev:${{ matrix.dpkg_arch }} \
+            libwayland-dev:${{ matrix.dpkg_arch }}
 
       # 2. Универсальная сборка проекта через подстановку параметров матрицы
       - name: Configure and Build
@@ -62,7 +80,10 @@ jobs:
             -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }} \
             -DAPP_RELEASE_BUILD=${{ env.APP_RELEASE_BUILD }} \
-            -DOPTIMIZE_FOR_NATIVE=OFF
+            -DOPTIMIZE_FOR_NATIVE=OFF \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY
           cmake --build build --config Release --target LatticeLab -j 4
 
       # 3. Подготовка дистрибутива
